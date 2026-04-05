@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Zorvyn Finance Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  [data-theme="dark"] {
+    --bg:#0d0f14;--surface:#13161e;--surface2:#1a1e28;--border:#252a38;
+    --accent:#4fffb0;--accent2:#4f8fff;--danger:#ff5e5e;--warn:#ffc94f;
+    --text:#e8eaf0;--muted:#6b7280;
+    --card-income-bg:#0a2218;--card-expense-bg:#2a0a0a;
+    --income-border:#1a3a28;--expense-border:#3a1a1a;
+    --shadow:0 4px 24px rgba(0,0,0,0.4);--toggle-bg:#1a1e28;
+    --insight-bg:#16191f;--insight-border:#1e2330;
+  }
+  [data-theme="light"] {
+    --bg:#f0f2f7;--surface:#ffffff;--surface2:#f5f6fa;--border:#e2e5ed;
+    --accent:#00a86b;--accent2:#2563eb;--danger:#e53535;--warn:#d97706;
+    --text:#111827;--muted:#6b7280;
+    --card-income-bg:#ecfdf5;--card-expense-bg:#fef2f2;
+    --income-border:#a7f3d0;--expense-border:#fecaca;
+    --shadow:0 4px 24px rgba(0,0,0,0.08);--toggle-bg:#e2e5ed;
+    --insight-bg:#f8f9fc;--insight-border:#e8eaf0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;transition:background .3s,color .3s;}
+
+  .theme-toggle{width:40px;height:22px;border-radius:11px;background:var(--toggle-bg);border:1px solid var(--border);cursor:pointer;position:relative;transition:background .3s;flex-shrink:0;}
+  .theme-toggle .knob{width:16px;height:16px;border-radius:50%;background:var(--accent);position:absolute;top:2px;left:2px;transition:transform .25s;display:flex;align-items:center;justify-content:center;font-size:9px;}
+  [data-theme="light"] .theme-toggle .knob{transform:translateX(18px);}
+
+  #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;}
+  [data-theme="dark"] #login-screen{background:radial-gradient(ellipse at 30% 50%,#0a2a1a 0%,var(--bg) 60%);}
+  [data-theme="light"] #login-screen{background:radial-gradient(ellipse at 30% 50%,#d1fae5 0%,var(--bg) 60%);}
+  .login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;width:380px;box-shadow:var(--shadow);}
+  .login-box .logo{font-size:22px;font-weight:600;color:var(--accent);letter-spacing:-.5px;margin-bottom:8px;}
+  .login-box .tagline{color:var(--muted);font-size:13px;margin-bottom:32px;}
+
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;}
+  .field input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .2s;}
+  .field input:focus{border-color:var(--accent);}
+
+  .btn{width:100%;padding:11px;border-radius:8px;border:none;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:opacity .2s,transform .1s;}
+  .btn:active{transform:scale(.98);}
+  .btn-primary{background:var(--accent);color:#fff;}
+  [data-theme="dark"] .btn-primary{color:#0d0f14;}
+  .btn-primary:hover{opacity:.88;}
+  .btn-outline{background:transparent;color:var(--accent);border:1px solid var(--accent);}
+  .error-msg{color:var(--danger);font-size:13px;margin-top:12px;display:none;white-space:pre-line;line-height:1.8;}
+  .success-msg{color:var(--accent);font-size:13px;margin-top:12px;display:none;}
+
+  #dashboard{display:none;}
+  .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow);}
+  .topbar .logo{font-size:18px;font-weight:600;color:var(--accent);}
+  .topbar .user-info{display:flex;align-items:center;gap:10px;}
+
+  .hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:4px;background:none;border:none;}
+  .hamburger span{width:22px;height:2px;background:var(--text);border-radius:2px;transition:all .3s;}
+
+  .role-badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500;font-family:'DM Mono',monospace;text-transform:uppercase;}
+  .badge-ADMIN{background:var(--card-income-bg);color:var(--accent);border:1px solid var(--income-border);}
+  .badge-ANALYST{background:#eff6ff;color:var(--accent2);border:1px solid #bfdbfe;}
+  [data-theme="dark"] .badge-ANALYST{background:#1a1e2e;border-color:#2a2e4a;}
+  .badge-VIEWER{background:#fffbeb;color:var(--warn);border:1px solid #fde68a;}
+  [data-theme="dark"] .badge-VIEWER{background:#2e2a1a;border-color:#4a3a1a;}
+  .btn-sm{padding:6px 14px;border-radius:6px;font-size:12px;width:auto;font-weight:500;}
+
+  .main{display:flex;position:relative;}
+  .sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);min-height:calc(100vh - 56px);padding:20px 12px;display:flex;flex-direction:column;gap:4px;transition:transform .3s;}
+  .nav-item{padding:9px 14px;border-radius:8px;font-size:13px;cursor:pointer;color:var(--muted);transition:all .15s;display:flex;align-items:center;gap:10px;}
+  .nav-item:hover{background:var(--surface2);color:var(--text);}
+  .nav-item.active{background:var(--card-income-bg);color:var(--accent);}
+  .nav-icon{font-size:16px;width:20px;text-align:center;}
+
+  .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99;backdrop-filter:blur(2px);}
+  .sidebar-overlay.open{display:block;}
+
+  .content{flex:1;padding:24px;min-width:0;}
+  .page{display:none;}
+  .page.active{display:block;}
+  .page-title{font-size:20px;font-weight:600;margin-bottom:4px;}
+  .page-sub{color:var(--muted);font-size:13px;margin-bottom:24px;}
+
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;box-shadow:var(--shadow);}
+  .card .label{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:10px;}
+  .card .value{font-size:24px;font-weight:600;font-family:'DM Mono',monospace;}
+  .card.income{background:var(--card-income-bg);border-color:var(--income-border);}
+  .card.income .value{color:var(--accent);}
+  .card.expense{background:var(--card-expense-bg);border-color:var(--expense-border);}
+  .card.expense .value{color:var(--danger);}
+  .card.net .value{color:var(--accent2);}
+
+  .chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:24px;box-shadow:var(--shadow);}
+  .chart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+  .chart-title{font-size:13px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+  .chart-canvas-wrap{position:relative;height:180px;}
+
+  .analytics-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;}
+  .donut-card,.insights-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;box-shadow:var(--shadow);}
+  .donut-wrap{position:relative;height:200px;display:flex;align-items:center;justify-content:center;}
+  .donut-center{position:absolute;text-align:center;pointer-events:none;}
+  .donut-center .dc-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+  .donut-center .dc-val{font-size:18px;font-weight:600;color:var(--danger);font-family:'DM Mono',monospace;}
+  .donut-legend{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:14px;}
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);}
+  .legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .insights-header{display:flex;align-items:center;gap:8px;margin-bottom:16px;}
+  .insights-header .ih-icon{font-size:16px;}
+  .insights-header .ih-title{font-size:15px;font-weight:600;}
+  .insight-item{background:var(--insight-bg);border:1px solid var(--insight-border);border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:12px;}
+  .insight-item:last-child{margin-bottom:0;}
+  .insight-icon{font-size:18px;margin-top:1px;flex-shrink:0;}
+  .insight-title{font-size:13px;font-weight:600;margin-bottom:3px;}
+  .insight-desc{font-size:12px;color:var(--muted);line-height:1.5;}
+
+  .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--shadow);}
+  .table-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+  .table-header span{font-size:14px;font-weight:500;}
+  .table-scroll{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;min-width:600px;}
+  th{padding:11px 16px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);background:var(--surface2);font-weight:500;}
+  td{padding:12px 16px;font-size:13px;border-top:1px solid var(--border);}
+  tr:hover td{background:var(--surface2);}
+  .type-badge{padding:2px 8px;border-radius:4px;font-size:11px;font-family:'DM Mono',monospace;}
+  .type-INCOME{background:var(--card-income-bg);color:var(--accent);}
+  .type-EXPENSE{background:var(--card-expense-bg);color:var(--danger);}
+  .action-btn{padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:'DM Sans',sans-serif;margin-right:4px;transition:all .15s;}
+  .action-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .action-btn.del:hover{border-color:var(--danger);color:var(--danger);}
+
+  .export-btns{display:flex;gap:8px;align-items:center;}
+  .export-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap;}
+  .export-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .export-btn.pdf-btn:hover{border-color:var(--danger);color:var(--danger);}
+
+  .form-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:500px;box-shadow:var(--shadow);}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .form-grid .field.full{grid-column:1/-1;}
+  .form-title{font-size:15px;font-weight:500;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+  .form-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .2s;}
+  .form-input:focus{border-color:var(--accent);}
+
+  .filters{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+  .seg{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:3px;gap:2px;}
+  .seg input[type=radio]{display:none;}
+  .seg label{padding:5px 14px;border-radius:6px;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .15s;user-select:none;}
+  .seg input[type=radio]:checked+label{background:var(--surface);color:var(--text);}
+  #tt-income:checked+label{color:var(--accent);}
+  #tt-expense:checked+label{color:var(--danger);}
+  .filter-text{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;transition:border-color .2s;}
+  .filter-text:focus{border-color:var(--accent);}
+  .filter-date{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;transition:border-color .2s;cursor:pointer;width:140px;}
+  [data-theme="dark"] .filter-date{color-scheme:dark;}
+  [data-theme="light"] .filter-date{color-scheme:light;}
+  .filter-date:focus{border-color:var(--accent);}
+  .filter-sep{color:var(--border);font-size:16px;}
+  .filter-btn{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:12px;transition:all .15s;}
+  .filter-btn:hover{border-color:var(--danger);color:var(--danger);}
+
+  .type-selector{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .type-selector input[type=radio]{display:none;}
+  .type-selector label{display:flex;align-items:center;justify-content:center;gap:7px;padding:10px 0;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:1.5px solid var(--border);color:var(--muted);background:var(--surface2);transition:all .2s;user-select:none;}
+  .type-selector label .dot{width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.4;transition:opacity .2s;}
+  #ft-income:checked+label,#et-income:checked+label{border-color:var(--accent);color:var(--accent);background:var(--card-income-bg);}
+  #ft-income:checked+label .dot,#et-income:checked+label .dot{opacity:1;}
+  #ft-expense:checked+label,#et-expense:checked+label{border-color:var(--danger);color:var(--danger);background:var(--card-expense-bg);}
+  #ft-expense:checked+label .dot,#et-expense:checked+label .dot{opacity:1;}
+
+  .amount-wrap{position:relative;display:flex;align-items:center;}
+  .amount-wrap .currency-sym{position:absolute;left:12px;color:var(--muted);font-size:14px;font-family:'DM Mono',monospace;pointer-events:none;z-index:1;}
+  .amount-wrap input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 90px 10px 28px;color:var(--text);font-family:'DM Mono',monospace;font-size:15px;outline:none;transition:border-color .2s;}
+  .amount-wrap input:focus{border-color:var(--accent);}
+  .amount-wrap input::-webkit-outer-spin-button,.amount-wrap input::-webkit-inner-spin-button{-webkit-appearance:none;}
+  .step-btns{position:absolute;right:6px;display:flex;gap:4px;}
+  .step-btn{width:32px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+  .step-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--card-income-bg);}
+
+  .date-wrap input[type=date]{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .2s;cursor:pointer;}
+  [data-theme="dark"] .date-wrap input[type=date]{color-scheme:dark;}
+  [data-theme="light"] .date-wrap input[type=date]{color-scheme:light;}
+  .date-wrap input[type=date]:focus{border-color:var(--accent);}
+
+  .status-active{color:var(--accent);font-size:12px;}
+  .status-inactive{color:var(--danger);font-size:12px;}
+  .cat-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);}
+  .cat-row:last-child{border:none;}
+  .cat-name{font-size:13px;}
+  .cat-val{font-family:'DM Mono',monospace;font-size:13px;color:var(--accent2);}
+  .section-title{font-size:13px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;}
+  .empty{text-align:center;color:var(--muted);padding:40px;font-size:13px;}
+  .loading{text-align:center;color:var(--muted);padding:20px;font-size:13px;}
+
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(2px);padding:16px;}
+  .modal-overlay.open{display:flex;}
+  .modal-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:480px;box-shadow:var(--shadow);}
+  .modal-title{font-size:16px;font-weight:600;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+  .modal-actions{display:flex;gap:10px;margin-top:20px;}
+
+  /* RESPONSIVE */
+  @media(max-width:900px){
+    .analytics-row{grid-template-columns:1fr;}
+    .cards{grid-template-columns:1fr 1fr;}
+    .donut-wrap{height:220px;}
+    .donut-card,.insights-card{width:100%;}
+  }
+  @media(max-width:768px){
+    .hamburger{display:flex;}
+    .sidebar{position:fixed;top:56px;left:0;bottom:0;z-index:100;transform:translateX(-100%);width:240px;box-shadow:var(--shadow);}
+    .sidebar.open{transform:translateX(0);}
+    .content{padding:16px;}
+    .cards{grid-template-columns:1fr;}
+    .card .value{font-size:20px;}
+    .analytics-row{grid-template-columns:1fr;}
+    .donut-card,.insights-card{border-radius:10px;padding:16px;}
+    .form-grid{grid-template-columns:1fr;}
+    .form-grid .field.full{grid-column:1;}
+    .modal-box{padding:20px;}
+    .topbar{padding:0 16px;}
+    .topbar .user-info{gap:8px;}
+    .export-btns{flex-wrap:wrap;}
+    .filters{gap:8px;}
+    .filter-date{width:120px;}
+    .role-badge{display:none;}
+  }
+  @media(max-width:600px){
+    .analytics-row{grid-template-columns:1fr;gap:12px;}
+    .donut-wrap{height:180px;}
+    .donut-legend{gap:6px 12px;}
+    .legend-item{font-size:11px;}
+    .donut-center .dc-val{font-size:15px;}
+    .insight-item{padding:11px 13px;gap:10px;}
+    .insight-icon{font-size:16px;}
+    .insight-title{font-size:12px;}
+    .insight-desc{font-size:11px;}
+    .insights-header .ih-title{font-size:14px;}
+  }
+  @media(max-width:480px){
+    .login-box{width:100%;max-width:380px;padding:28px 20px;margin:16px;}
+    .cards{grid-template-columns:1fr;}
+    .seg label{padding:5px 10px;font-size:11px;}
+    .table-header{flex-direction:column;align-items:flex-start;}
+    .export-btns{width:100%;}
+    .export-btn{flex:1;justify-content:center;}
+    .page-title{font-size:18px;}
+    .chart-canvas-wrap{height:140px;}
+    .donut-wrap{height:160px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div class="logo">⬡ Zorvyn Finance</div>
+      <button class="theme-toggle" onclick="toggleTheme()"><div class="knob" id="knob-login">🌙</div></button>
+    </div>
+    <div class="tagline">Secure financial data management system</div>
+    <div class="field"><label>Username</label><input id="login-user" type="text" value="admin" placeholder="Enter username"/></div>
+    <div class="field"><label>Password</label><input id="login-pass" type="password" value="admin123" placeholder="Enter password"/></div>
+    <button class="btn btn-primary" onclick="doLogin()">Sign In</button>
+    <div class="error-msg" id="login-error"></div>
+    <hr style="border-color:var(--border);margin:20px 0"/>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Quick login:</div>
+    <div style="display:flex;gap:8px">
+      <button class="action-btn" onclick="quickLogin('admin','admin123')">admin</button>
+      <button class="action-btn" onclick="quickLogin('analyst','analyst123')">analyst</button>
+      <button class="action-btn" onclick="quickLogin('viewer','viewer123')">viewer</button>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="hamburger" id="hamburger" onclick="toggleSidebar()">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="logo">⬡ Zorvyn Finance</div>
+    </div>
+    <div class="user-info">
+      <span id="top-user" style="font-size:13px"></span>
+      <span id="top-role" class="role-badge"></span>
+      <button class="theme-toggle" onclick="toggleTheme()"><div class="knob" id="knob-dash">🌙</div></button>
+      <button class="btn btn-sm btn-outline" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+  <div class="main">
+    <div class="sidebar" id="sidebar">
+      <div class="nav-item active" onclick="showPage('dashboard-page',this)"><span class="nav-icon">▦</span> Dashboard</div>
+      <div class="nav-item" onclick="showPage('records-page',this)"><span class="nav-icon">≡</span> Records</div>
+      <div class="nav-item" id="nav-add" onclick="showPage('add-page',this)"><span class="nav-icon">+</span> Add Record</div>
+      <div class="nav-item" id="nav-users" onclick="showPage('users-page',this)"><span class="nav-icon">◎</span> Users</div>
+    </div>
+
+    <div class="content">
+
+      <!-- DASHBOARD PAGE -->
+      <div class="page active" id="dashboard-page">
+        <div class="page-title">Dashboard</div>
+        <div class="page-sub">Financial summary and analytics</div>
+        <div class="cards">
+          <div class="card income"><div class="label">Total Income</div><div class="value" id="d-income">—</div></div>
+          <div class="card expense"><div class="label">Total Expenses</div><div class="value" id="d-expense">—</div></div>
+          <div class="card net"><div class="label">Net Balance</div><div class="value" id="d-net">—</div></div>
+        </div>
+        <div class="chart-wrap" id="chart-section">
+          <div class="chart-header"><span class="chart-title">Balance Trend</span></div>
+          <div class="chart-canvas-wrap"><canvas id="trendChart"></canvas></div>
+        </div>
+        <div class="analytics-row" id="analytics-row">
+          <div class="donut-card">
+            <div class="section-title">Spending by Category</div>
+            <div class="donut-wrap">
+              <canvas id="donutChart"></canvas>
+              <div class="donut-center"><div class="dc-label">Total Spent</div><div class="dc-val" id="donut-total">—</div></div>
+            </div>
+            <div class="donut-legend" id="donut-legend"></div>
+          </div>
+          <div class="insights-card">
+            <div class="insights-header"><span class="ih-icon">💡</span><span class="ih-title">Key Insights</span></div>
+            <div id="insights-list"><div class="loading">Loading...</div></div>
+          </div>
+        </div>
+        <div class="table-wrap" style="padding:20px">
+          <div class="section-title">Recent Activity</div>
+          <div id="d-recent"><div class="loading">Loading...</div></div>
+        </div>
+      </div>
+
+      <!-- RECORDS PAGE -->
+      <div class="page" id="records-page">
+        <div class="page-title">Financial Records</div>
+        <div class="page-sub">View, filter and manage records</div>
+        <div class="filters">
+          <div class="seg">
+            <input type="radio" name="filter-type" id="tt-all" value="" checked onchange="loadRecords()"/>
+            <label for="tt-all">All</label>
+            <input type="radio" name="filter-type" id="tt-income" value="INCOME" onchange="loadRecords()"/>
+            <label for="tt-income">Income</label>
+            <input type="radio" name="filter-type" id="tt-expense" value="EXPENSE" onchange="loadRecords()"/>
+            <label for="tt-expense">Expense</label>
+          </div>
+          <input class="filter-text" id="f-category" placeholder="Category..." onkeyup="if(event.key==='Enter')loadRecords()"/>
+          <input class="filter-date" id="f-from" type="date" onchange="loadRecords()"/>
+          <span class="filter-sep">→</span>
+          <input class="filter-date" id="f-to" type="date" onchange="loadRecords()"/>
+          <button class="filter-btn" onclick="clearFilters()">Clear</button>
+        </div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <span>Records</span>
+            <div class="export-btns">
+              <button class="export-btn" onclick="exportCSV()">⬇ CSV</button>
+              <button class="export-btn pdf-btn" onclick="exportPDF()">⬇ PDF</button>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>#</th><th>Date</th><th>Type</th><th>Category</th><th>Amount</th><th>Notes</th><th id="th-actions">Actions</th></tr></thead>
+              <tbody id="records-body"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADD RECORD PAGE -->
+      <div class="page" id="add-page">
+        <div class="page-title">Add Record</div>
+        <div class="page-sub">Create a new financial entry</div>
+        <div class="form-card">
+          <div class="form-title">New Financial Record</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>Amount</label>
+              <div class="amount-wrap">
+                <span class="currency-sym">₹</span>
+                <input id="r-amount" type="number" step="1" min="0" placeholder="0"/>
+                <div class="step-btns">
+                  <button class="step-btn" onclick="stepAmt('r-amount',-100)" type="button">−</button>
+                  <button class="step-btn" onclick="stepAmt('r-amount',100)" type="button">+</button>
+                </div>
+              </div>
+            </div>
+            <div class="field"><label>Date</label><div class="date-wrap"><input id="r-date" type="date"/></div></div>
+            <div class="field full">
+              <label>Type</label>
+              <div class="type-selector">
+                <input type="radio" name="r-type-r" id="ft-income" value="INCOME" checked/>
+                <label for="ft-income"><span class="dot"></span> Income</label>
+                <input type="radio" name="r-type-r" id="ft-expense" value="EXPENSE"/>
+                <label for="ft-expense"><span class="dot"></span> Expense</label>
+              </div>
+            </div>
+            <div class="field full"><label>Category</label><input class="form-input" id="r-category" placeholder="e.g. Salary, Rent"/></div>
+            <div class="field full"><label>Notes</label><input class="form-input" id="r-notes" placeholder="Optional description"/></div>
+          </div>
+          <button class="btn btn-primary" style="margin-top:16px" onclick="createRecord()">Create Record</button>
+          <div class="success-msg" id="record-success">✓ Record created successfully!</div>
+          <div class="error-msg" id="record-error"></div>
+        </div>
+      </div>
+
+      <!-- USERS PAGE -->
+      <div class="page" id="users-page">
+        <div class="page-title">User Management</div>
+        <div class="page-sub">Manage users and their roles</div>
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>#</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody id="users-body"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal-box">
+    <div class="modal-title">Edit Record</div>
+    <input type="hidden" id="edit-id"/>
+    <div class="form-grid">
+      <div class="field">
+        <label>Amount</label>
+        <div class="amount-wrap">
+          <span class="currency-sym">₹</span>
+          <input id="edit-amount" type="number" step="1" min="0"/>
+          <div class="step-btns">
+            <button class="step-btn" onclick="stepAmt('edit-amount',-100)" type="button">−</button>
+            <button class="step-btn" onclick="stepAmt('edit-amount',100)" type="button">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="field"><label>Date</label><div class="date-wrap"><input id="edit-date" type="date"/></div></div>
+      <div class="field full">
+        <label>Type</label>
+        <div class="type-selector">
+          <input type="radio" name="edit-type-r" id="et-income" value="INCOME"/>
+          <label for="et-income"><span class="dot"></span> Income</label>
+          <input type="radio" name="edit-type-r" id="et-expense" value="EXPENSE"/>
+          <label for="et-expense"><span class="dot"></span> Expense</label>
+        </div>
+      </div>
+      <div class="field full"><label>Category</label><input class="form-input" id="edit-category"/></div>
+      <div class="field full"><label>Notes</label><input class="form-input" id="edit-notes"/></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" style="flex:1" onclick="updateRecord()">Update Record</button>
+      <button class="btn btn-outline" style="flex:1" onclick="closeEdit()">Cancel</button>
+    </div>
+    <div class="success-msg" id="edit-success">✓ Record updated successfully!</div>
+    <div class="error-msg" id="edit-error"></div>
+  </div>
+</div>
+
+<script>
+const API='http://localhost:8080';
+let TOKEN='',ROLE='',USERNAME='';
+let trendChartInstance=null,donutChartInstance=null;
+let currentTheme=localStorage.getItem('theme')||'dark';
+let lastRecords=[];
+const DONUT_COLORS=['#4f8fff','#4fffb0','#ff5e5e','#ffc94f','#a78bfa','#f472b6','#34d399','#fb923c','#38bdf8','#e879f9'];
+
+document.documentElement.setAttribute('data-theme',currentTheme);
+updateKnobs();
+
+function updateKnobs(){
+  const icon=currentTheme==='dark'?'🌙':'☀️';
+  document.querySelectorAll('.knob').forEach(k=>k.textContent=icon);
+}
+function toggleTheme(){
+  currentTheme=currentTheme==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',currentTheme);
+  localStorage.setItem('theme',currentTheme);
+  updateKnobs();
+  if(trendChartInstance)loadTrendChart();
+}
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+function stepAmt(id,delta){
+  const el=document.getElementById(id);
+  el.value=Math.max(0,(parseFloat(el.value)||0)+delta);
+}
+function quickLogin(u,p){
+  document.getElementById('login-user').value=u;
+  document.getElementById('login-pass').value=p;
+  doLogin();
+}
+
+async function doLogin(){
+  const username=document.getElementById('login-user').value;
+  const password=document.getElementById('login-pass').value;
+  const err=document.getElementById('login-error');
+  err.style.display='none';
+  try{
+    const res=await fetch(`${API}/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
+    const data=await res.json();
+    if(!res.ok){err.textContent=data.error||'Login failed';err.style.display='block';return;}
+    TOKEN=data.token;ROLE=data.role;USERNAME=data.username;
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('dashboard').style.display='block';
+    document.getElementById('top-user').textContent=USERNAME;
+    const rb=document.getElementById('top-role');
+    rb.textContent=ROLE;rb.className=`role-badge badge-${ROLE}`;
+    applyRoleRestrictions();loadDashboard();
+    document.getElementById('r-date').value=new Date().toISOString().split('T')[0];
+  }catch(e){err.textContent='Cannot connect to server. Is it running?';err.style.display='block';}
+}
+
+function applyRoleRestrictions(){
+  document.getElementById('nav-add').style.display='';
+  document.getElementById('nav-users').style.display='';
+  document.getElementById('th-actions').style.display='';
+  if(ROLE==='VIEWER'){
+    document.getElementById('nav-add').style.display='none';
+    document.getElementById('nav-users').style.display='none';
+    document.getElementById('th-actions').style.display='none';
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('dashboard-page').classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    document.querySelector('.nav-item').classList.add('active');
+  }
+  if(ROLE==='ANALYST')document.getElementById('nav-users').style.display='none';
+}
+
+function logout(){
+  TOKEN='';ROLE='';USERNAME='';
+  if(trendChartInstance){trendChartInstance.destroy();trendChartInstance=null;}
+  if(donutChartInstance){donutChartInstance.destroy();donutChartInstance=null;}
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('dashboard-page').classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelector('.nav-item').classList.add('active');
+  document.getElementById('nav-add').style.display='';
+  document.getElementById('nav-users').style.display='';
+  document.getElementById('th-actions').style.display='';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('dashboard').style.display='none';
+}
+
+function showPage(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+  if(window.innerWidth<=768){
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('open');
+  }
+  if(id==='records-page')loadRecords();
+  if(id==='users-page')loadUsers();
+  if(id==='dashboard-page')loadDashboard();
+}
+
+function authHeaders(){return{'Content-Type':'application/json','Authorization':`Bearer ${TOKEN}`};}
+
+function getChartColors(){
+  return currentTheme==='dark'
+    ?{line:'#4f8fff',grid:'#252a38',text:'#6b7280',tooltip:'#13161e',border:'#252a38',gradTop:'rgba(79,143,255,0.2)',gradBot:'rgba(79,143,255,0)'}
+    :{line:'#2563eb',grid:'#e2e5ed',text:'#9ca3af',tooltip:'#ffffff',border:'#e2e5ed',gradTop:'rgba(37,99,235,0.12)',gradBot:'rgba(37,99,235,0)'};
+}
+
+async function loadDashboard(){
+  try{
+    const res=await fetch(`${API}/api/dashboard/summary`,{headers:authHeaders()});
+    if(res.status===403){
+      ['d-income','d-expense','d-net'].forEach(id=>document.getElementById(id).textContent='N/A');
+      document.getElementById('d-recent').innerHTML='<div class="empty">Access restricted for your role</div>';
+      document.getElementById('chart-section').style.display='none';
+      document.getElementById('analytics-row').style.display='none';
+      return;
+    }
+    document.getElementById('chart-section').style.display='';
+    document.getElementById('analytics-row').style.display='';
+    const d=await res.json();
+    document.getElementById('d-income').textContent=`₹${Number(d.totalIncome).toLocaleString('en-IN',{minimumFractionDigits:2})}`;
+    document.getElementById('d-expense').textContent=`₹${Number(d.totalExpenses).toLocaleString('en-IN',{minimumFractionDigits:2})}`;
+    document.getElementById('d-net').textContent=`₹${Number(d.netBalance).toLocaleString('en-IN',{minimumFractionDigits:2})}`;
+    const recent=d.recentActivity;
+    document.getElementById('d-recent').innerHTML=(!recent||!recent.length)
+      ?'<div class="empty">No recent activity</div>'
+      :recent.slice(0,5).map(r=>`<div class="cat-row"><span><span class="type-badge type-${r.type}">${r.type}</span><span style="margin-left:8px;font-size:12px;color:var(--muted)">${r.category}</span></span><span class="cat-val">₹${Number(r.amount).toLocaleString('en-IN')}</span></div>`).join('');
+    loadTrendChart();loadInsights();
+  }catch(e){console.error(e);}
+}
+
+async function loadTrendChart(){
+  try{
+    const res=await fetch(`${API}/api/dashboard/trend`,{headers:authHeaders()});
+    if(!res.ok)return;
+    const data=await res.json();
+    if(!data||data.length<2)return;
+    const labels=data.map(p=>new Date(p.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short'}));
+    const values=data.map(p=>Number(p.balance));
+    const c=getChartColors();
+    if(trendChartInstance){trendChartInstance.destroy();trendChartInstance=null;}
+    const ctx=document.getElementById('trendChart').getContext('2d');
+    const grad=ctx.createLinearGradient(0,0,0,180);
+    grad.addColorStop(0,c.gradTop);grad.addColorStop(1,c.gradBot);
+    trendChartInstance=new Chart(ctx,{type:'line',
+      data:{labels,datasets:[{data:values,borderColor:c.line,borderWidth:2,backgroundColor:grad,fill:true,tension:0.4,pointRadius:0,pointHoverRadius:5,pointHoverBackgroundColor:c.line,pointHoverBorderColor:'#fff',pointHoverBorderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+        plugins:{legend:{display:false},tooltip:{backgroundColor:c.tooltip,borderColor:c.border,borderWidth:1,titleColor:c.text,bodyColor:currentTheme==='dark'?'#e8eaf0':'#111827',padding:10,callbacks:{label:ctx=>` ₹${Number(ctx.raw).toLocaleString('en-IN')}`}}},
+        scales:{x:{grid:{color:c.grid},ticks:{color:c.text,font:{size:11},maxTicksLimit:8,maxRotation:0},border:{display:false}},y:{grid:{color:c.grid},ticks:{color:c.text,font:{size:11},callback:v=>'₹'+Number(v).toLocaleString('en-IN')},border:{display:false}}}}});
+  }catch(e){console.error(e);}
+}
+
+async function loadInsights(){
+  try{
+    const res=await fetch(`${API}/api/dashboard/insights`,{headers:authHeaders()});
+    if(!res.ok)return;
+    const d=await res.json();
+    const cats=d.expenseByCategory||{};
+    const catNames=Object.keys(cats);
+    const catVals=Object.values(cats).map(Number);
+    const totalExpense=catVals.reduce((a,b)=>a+b,0);
+    document.getElementById('donut-total').textContent=`₹${totalExpense.toLocaleString('en-IN')}`;
+    if(donutChartInstance){donutChartInstance.destroy();donutChartInstance=null;}
+    if(catNames.length>0){
+      const ctx2=document.getElementById('donutChart').getContext('2d');
+      donutChartInstance=new Chart(ctx2,{type:'doughnut',
+        data:{labels:catNames,datasets:[{data:catVals,backgroundColor:DONUT_COLORS.slice(0,catNames.length),borderWidth:2,borderColor:currentTheme==='dark'?'#13161e':'#ffffff',hoverOffset:6}]},
+        options:{responsive:true,maintainAspectRatio:false,cutout:'68%',
+          plugins:{legend:{display:false},tooltip:{backgroundColor:currentTheme==='dark'?'#13161e':'#fff',borderColor:currentTheme==='dark'?'#252a38':'#e2e5ed',borderWidth:1,titleColor:currentTheme==='dark'?'#6b7280':'#9ca3af',bodyColor:currentTheme==='dark'?'#e8eaf0':'#111827',padding:10,callbacks:{label:ctx=>` ₹${Number(ctx.raw).toLocaleString('en-IN')} (${((ctx.raw/totalExpense)*100).toFixed(1)}%)`}}}}});
+      document.getElementById('donut-legend').innerHTML=catNames.map((name,i)=>`<div class="legend-item"><span class="legend-dot" style="background:${DONUT_COLORS[i]}"></span>${name}</div>`).join('');
+    }else{
+      document.getElementById('donut-legend').innerHTML='<div class="empty" style="padding:20px">No expense data yet</div>';
+    }
+    const net=Number(d.netBalance);
+    const insights=[];
+    if(net>0)insights.push({icon:'📈',color:'var(--accent)',title:'Positive Cash Flow',desc:`You've earned ₹${net.toLocaleString('en-IN')} more than you spent. Great work!`});
+    else if(net<0)insights.push({icon:'📉',color:'var(--danger)',title:'Negative Cash Flow',desc:`You're spending ₹${Math.abs(net).toLocaleString('en-IN')} more than you earn.`});
+    else insights.push({icon:'⚖️',color:'var(--warn)',title:'Balanced Budget',desc:'Your income and expenses are perfectly balanced.'});
+    if(d.topExpenseCategory)insights.push({icon:'📊',color:'var(--warn)',title:'Top Expense Category',desc:`You spent the most on <strong>${d.topExpenseCategory}</strong> (₹${Number(d.topExpenseAmount).toLocaleString('en-IN')}).`});
+    if(d.largestTransactionCategory)insights.push({icon:'💰',color:'var(--accent2)',title:'Largest Transaction',desc:`A ${d.largestTransactionType.toLowerCase()} of ₹${Number(d.largestTransactionAmount).toLocaleString('en-IN')} for <strong>${d.largestTransactionCategory}</strong>.`});
+    if(Number(d.totalIncome)>0){
+      const rate=((net/Number(d.totalIncome))*100).toFixed(1);
+      const col=rate>20?'var(--accent)':rate>0?'var(--warn)':'var(--danger)';
+      insights.push({icon:'🏦',color:col,title:'Savings Rate',desc:`You're saving <strong>${rate}%</strong> of your income. ${rate>20?'Excellent!':rate>0?'Aim for 20%+.':'Cut spending.'}`});
+    }
+    document.getElementById('insights-list').innerHTML=insights.map(ins=>`<div class="insight-item"><div class="insight-icon" style="color:${ins.color}">${ins.icon}</div><div><div class="insight-title">${ins.title}</div><div class="insight-desc">${ins.desc}</div></div></div>`).join('');
+  }catch(e){console.error(e);}
+}
+
+function exportCSV(){
+  if(!lastRecords.length){alert('No records to export.');return;}
+  const headers=['ID','Date','Type','Category','Amount','Notes'];
+  const rows=lastRecords.map(r=>[r.id,r.date,r.type,r.category,r.amount,r.notes||'']);
+  const csv=[headers,...rows].map(row=>row.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`zorvyn-records-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();URL.revokeObjectURL(url);
+}
+
+function exportPDF(){
+  if(!lastRecords.length){alert('No records to export.');return;}
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF();
+  doc.setFontSize(18);doc.setTextColor(40,40,40);
+  doc.text('Zorvyn Finance',14,18);
+  doc.setFontSize(11);doc.setTextColor(120,120,120);
+  doc.text('Financial Records Report',14,26);
+  doc.text(`Generated: ${new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}`,14,32);
+  doc.autoTable({
+    startY:40,
+    head:[['#','Date','Type','Category','Amount (₹)','Notes']],
+    body:lastRecords.map(r=>[r.id,r.date,r.type,r.category,Number(r.amount).toLocaleString('en-IN'),r.notes||'—']),
+    headStyles:{fillColor:[15,18,22],textColor:[79,255,176],fontStyle:'bold',fontSize:10},
+    bodyStyles:{fontSize:9,textColor:[40,40,40]},
+    alternateRowStyles:{fillColor:[245,246,250]},
+    columnStyles:{4:{halign:'right'},0:{cellWidth:12}},
+    styles:{cellPadding:5,lineColor:[220,220,220],lineWidth:0.3},
+    margin:{left:14,right:14}
+  });
+  const income=lastRecords.filter(r=>r.type==='INCOME').reduce((s,r)=>s+Number(r.amount),0);
+  const expense=lastRecords.filter(r=>r.type==='EXPENSE').reduce((s,r)=>s+Number(r.amount),0);
+  const y=doc.lastAutoTable.finalY+10;
+  doc.setFontSize(10);doc.setTextColor(40,40,40);
+  doc.text(`Total Income: ₹${income.toLocaleString('en-IN')}`,14,y);
+  doc.text(`Total Expenses: ₹${expense.toLocaleString('en-IN')}`,14,y+7);
+  doc.setTextColor(37,99,235);
+  doc.text(`Net Balance: ₹${(income-expense).toLocaleString('en-IN')}`,14,y+14);
+  doc.save(`zorvyn-records-${new Date().toISOString().split('T')[0]}.pdf`);
+}
+
+async function loadRecords(){
+  const type=document.querySelector('input[name="filter-type"]:checked').value;
+  const category=document.getElementById('f-category').value;
+  const from=document.getElementById('f-from').value;
+  const to=document.getElementById('f-to').value;
+  let url=`${API}/api/records?`;
+  if(type)url+=`type=${type}&`;
+  if(category)url+=`category=${encodeURIComponent(category)}&`;
+  if(from)url+=`from=${from}&`;
+  if(to)url+=`to=${to}&`;
+  const tbody=document.getElementById('records-body');
+  tbody.innerHTML='<tr><td colspan="7" class="loading">Loading...</td></tr>';
+  try{
+    const res=await fetch(url,{headers:authHeaders()});
+    const data=await res.json();
+    lastRecords=data;
+    if(!data.length){tbody.innerHTML='<tr><td colspan="7" class="empty">No records found</td></tr>';return;}
+    tbody.innerHTML=data.map(r=>`<tr>
+      <td style="color:var(--muted);font-family:'DM Mono',monospace">${r.id}</td>
+      <td>${r.date}</td>
+      <td><span class="type-badge type-${r.type}">${r.type}</span></td>
+      <td>${r.category}</td>
+      <td style="font-family:'DM Mono',monospace">₹${Number(r.amount).toLocaleString('en-IN')}</td>
+      <td style="color:var(--muted)">${r.notes||'—'}</td>
+      <td>
+        ${(ROLE==='ADMIN'||ROLE==='ANALYST')?`<button class="action-btn" onclick="openEdit(${r.id},${r.amount},'${r.type}','${r.category}','${r.date}',\`${(r.notes||'').replace(/`/g,"'")}\`)">Edit</button>`:''}
+        ${ROLE==='ADMIN'?`<button class="action-btn del" onclick="deleteRecord(${r.id})">Delete</button>`:''}
+        ${ROLE==='VIEWER'?'—':''}
+      </td>
+    </tr>`).join('');
+  }catch(e){tbody.innerHTML='<tr><td colspan="7" class="empty">Error loading records</td></tr>';}
+}
+
+function clearFilters(){
+  document.getElementById('tt-all').checked=true;
+  document.getElementById('f-category').value='';
+  document.getElementById('f-from').value='';
+  document.getElementById('f-to').value='';
+  loadRecords();
+}
+function formatErrors(data){
+  const friendly={amount:'⚠ Amount is required and must be a positive number',type:'⚠ Type must be INCOME or EXPENSE',category:'⚠ Category cannot be empty',date:'⚠ Date is required'};
+  if(data.error)return'⚠ '+data.error;
+  return Object.keys(data).map(k=>friendly[k]||`⚠ ${k}: ${data[k]}`).join('\n');
+}
+async function createRecord(){
+  const body={amount:parseFloat(document.getElementById('r-amount').value),type:document.querySelector('input[name="r-type-r"]:checked').value,category:document.getElementById('r-category').value,date:document.getElementById('r-date').value,notes:document.getElementById('r-notes').value};
+  const succ=document.getElementById('record-success'),err=document.getElementById('record-error');
+  succ.style.display='none';err.style.display='none';
+  try{
+    const res=await fetch(`${API}/api/records`,{method:'POST',headers:authHeaders(),body:JSON.stringify(body)});
+    const data=await res.json();
+    if(!res.ok){err.textContent=formatErrors(data);err.style.display='block';return;}
+    succ.style.display='block';
+    document.getElementById('r-amount').value='';
+    document.getElementById('r-category').value='';
+    document.getElementById('r-notes').value='';
+    document.getElementById('ft-income').checked=true;
+    setTimeout(()=>succ.style.display='none',3000);
+  }catch(e){err.textContent='Failed to create record';err.style.display='block';}
+}
+async function deleteRecord(id){
+  if(!confirm('Delete this record?'))return;
+  try{await fetch(`${API}/api/records/${id}`,{method:'DELETE',headers:authHeaders()});loadRecords();}
+  catch(e){alert('Failed to delete');}
+}
+function openEdit(id,amount,type,category,date,notes){
+  document.getElementById('edit-id').value=id;
+  document.getElementById('edit-amount').value=amount;
+  document.getElementById(type==='INCOME'?'et-income':'et-expense').checked=true;
+  document.getElementById('edit-category').value=category;
+  document.getElementById('edit-date').value=date;
+  document.getElementById('edit-notes').value=notes;
+  document.getElementById('edit-success').style.display='none';
+  document.getElementById('edit-error').style.display='none';
+  document.getElementById('edit-modal').classList.add('open');
+}
+function closeEdit(){document.getElementById('edit-modal').classList.remove('open');}
+async function updateRecord(){
+  const id=document.getElementById('edit-id').value;
+  const body={amount:parseFloat(document.getElementById('edit-amount').value),type:document.querySelector('input[name="edit-type-r"]:checked').value,category:document.getElementById('edit-category').value,date:document.getElementById('edit-date').value,notes:document.getElementById('edit-notes').value};
+  const succ=document.getElementById('edit-success'),err=document.getElementById('edit-error');
+  succ.style.display='none';err.style.display='none';
+  try{
+    const res=await fetch(`${API}/api/records/${id}`,{method:'PUT',headers:authHeaders(),body:JSON.stringify(body)});
+    const data=await res.json();
+    if(!res.ok){err.textContent=formatErrors(data);err.style.display='block';return;}
+    succ.style.display='block';
+    setTimeout(()=>{closeEdit();loadRecords();},1500);
+  }catch(e){err.textContent='Failed to update record';err.style.display='block';}
+}
+async function loadUsers(){
+  const tbody=document.getElementById('users-body');
+  tbody.innerHTML='<tr><td colspan="6" class="loading">Loading...</td></tr>';
+  try{
+    const res=await fetch(`${API}/api/admin/users`,{headers:authHeaders()});
+    if(res.status===403){tbody.innerHTML='<tr><td colspan="6" class="empty">Access restricted</td></tr>';return;}
+    const data=await res.json();
+    tbody.innerHTML=data.map(u=>`<tr>
+      <td style="color:var(--muted);font-family:'DM Mono',monospace">${u.id}</td>
+      <td>${u.username}</td><td style="color:var(--muted)">${u.email}</td>
+      <td><span class="role-badge badge-${u.role}">${u.role}</span></td>
+      <td><span class="${u.active?'status-active':'status-inactive'}">${u.active?'● Active':'● Inactive'}</span></td>
+      <td><button class="action-btn" onclick="toggleUser(${u.id})">${u.active?'Deactivate':'Activate'}</button></td>
+    </tr>`).join('');
+  }catch(e){tbody.innerHTML='<tr><td colspan="6" class="empty">Error loading users</td></tr>';}
+}
+async function toggleUser(id){
+  try{await fetch(`${API}/api/admin/users/${id}/status`,{method:'PATCH',headers:authHeaders()});loadUsers();}
+  catch(e){alert('Failed to update user');}
+}
+document.getElementById('edit-modal').addEventListener('click',function(e){if(e.target===this)closeEdit();});
+</script>
+</body>
+</html>
